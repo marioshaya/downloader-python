@@ -1,6 +1,14 @@
 import sys
 import yt_dlp
 
+# Default download directories
+DEFAULT_DIRS = {
+    '1': ('~/Music', 'Music folder'),
+    '2': ('/mnt/Data/Tantara/', 'Tantara folder'),
+    '3': ('.', 'Current directory'),
+    '4': ('custom', 'Custom path')
+}
+
 def list_formats(url):
     """List all available formats for a given YouTube URL."""
     ydl_opts = {
