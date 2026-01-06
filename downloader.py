@@ -167,6 +167,15 @@ def download_video(url, format_id, output_dir, title):
     except Exception as e:
         console.print(f"[bold red]✗ Error downloading: {e}[/bold red]")
 
+def show_menu():
+    """Display main menu"""
+    console.clear()
+    console.print(Panel.fit(
+        "[bold cyan]YouTube Video Downloader[/bold cyan]\n"
+        "[dim]Qamardo SHAYA[/dim]",
+        border_style="cyan"
+    ))
+
 def progress_hook(d):
     """Display download progress"""
     if d['status'] == 'downloading':
@@ -178,45 +187,55 @@ def progress_hook(d):
         print("\nProcessing...")
 
 def main():
-    print("=" * 80)
-    print("YouTube Video Downloader")
-    print("=" * 80)
+    show_menu()
     
     # Get URL
     if len(sys.argv) > 1:
         url = sys.argv[1]
+        console.print(f"[green]Using URL from arguments[/green]")
     else:
-        url = input("\nEnter YouTube URL: ").strip()
+        url = Prompt.ask("\n[bold cyan]Enter YouTube URL[/bold cyan]").strip()
     
     if not url:
-        print("No URL provided!")
+        console.print("[red]No URL provided![/red]")
         return
     
     # List formats
-    formats = list_formats(url)
+    formats, title = list_formats(url)
     if not formats:
         return
     
-    # Get user choice
-    print("\n" + "=" * 80)
-    print("Options:")
-    print("  - Enter format ID to download specific format")
-    print("  - Press Enter for best quality")
-    print("  - Type 'q' to quit")
-    print("=" * 80)
+     # Format selection menu
+    console.print("\n" + "─" * 80)
+    console.print("[bold yellow]Download Options:[/bold yellow]")
+    console.print("  • Enter [bold]format ID[/bold] for specific format")
+    console.print("  • Press [bold]Enter[/bold] for best quality")
+    console.print("  • Type [bold]'bestvideo+bestaudio'[/bold] for best video+audio merge")
+    console.print("  • Type [bold]'bestaudio'[/bold] for audio only")
+    console.print("  • Type [bold]'q'[/bold] to quit")
+    console.print("─" * 80)
     
-    choice = input("\nYour choice: ").strip()
+    choice = Prompt.ask("\n[bold]Your choice[/bold]", default="").strip()
     
     if choice.lower() == 'q':
-        print("Cancelled.")
+        console.print("[yellow]Cancelled.[/yellow]")
+        return
+    
+    # Get output directory
+    output_dir = get_output_directory()
+    if not output_dir:
         return
     
     # Download
-    if choice:
-        download_video(url, choice)
-    else:
-        download_video(url)
+    format_id = choice if choice else 'best'
+    download_video(url, format_id, output_dir, title)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user.[/yellow]")
+    except Exception as e:
+        console.print(f"\n[bold red]Unexpected error: {e}[/bold red]")
+
     
