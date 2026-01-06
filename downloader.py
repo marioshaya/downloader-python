@@ -65,40 +65,88 @@ def get_output_directory():
     return output_dir
 
 def list_formats(url):
-    """List all available formats for a given YouTube URL."""
+    """List all available formats for a video"""
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
     }
-
+    
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-            print(f"\nTitle: {info['title']}")
-            print(f"Duration: {info['duration']}s")
-            print("\nAvailable formats:")
-            print("-" * 80)
-            print(f"{'ID':<8} {'Extension':<12} {'Resolution':<12} {'FPS':<8} {'Size':<15} {'Note'}")
-            print("-" * 80)
-
-            for f in info['formats']:
-                format_id = f.get('format_id', 'N/A')
-                ext = f.get('ext', 'N/A')
-                resolution = f.get('resolution', 'audio only' if f.get('vcodec') == 'none' else 'N/A')
-                fps = f.get('fps', 'N/A')
-                filesize = f.get('filesize') or f.get('filesize_approx')
-                size = f"{filesize / (1024*1024):.1f} MB" if filesize else "Unknown"
-                note = f.get('format_note', '')
-                
-                print(f"{format_id:<8} {ext:<12} {resolution:<12} {str(fps):<8} {size:<15} {note}")
+        with console.status("[bold green]Fetching video information...", spinner="dots"):
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        
+        # Display video info
+        console.print(Panel(
+            f"[bold white]{info['title']}[/bold white]\n"
+            f"[cyan]Duration:[/cyan] {info['duration']}s | "
+            f"[cyan]Uploader:[/cyan] {info.get('uploader', 'N/A')}",
+            title="[bold magenta]Video Information[/bold magenta]",
+            border_style="magenta"
+        ))
+        
+        # Create formats table
+        table = Table(show_header=True, header_style="bold cyan", title="\n[bold]Available Formats[/bold]")
+        table.add_column("ID", style="yellow", width=8)
+        table.add_column("Ext", style="green", width=8)
+        table.add_column("Resolution", style="cyan", width=15)
+        table.add_column("FPS", style="blue", width=6)
+        table.add_column("Size", style="magenta", width=12)
+        table.add_column("Type", style="white", width=20)
+        
+        # Separate video and audio formats
+        video_formats = []
+        audio_formats = []
+        combined_formats = []
+        
+        for f in info['formats']:
+            has_video = f.get('vcodec') != 'none'
+            has_audio = f.get('acodec') != 'none'
             
-            return info['formats']
-
+            if has_video and has_audio:
+                combined_formats.append(f)
+            elif has_video:
+                video_formats.append(f)
+            elif has_audio:
+                audio_formats.append(f)
+        
+        # Add combined formats
+        if combined_formats:
+            table.add_row("[bold]--- Combined (Video + Audio) ---[/bold]", "", "", "", "", "", style="bold green")
+            for f in combined_formats[:10]:  # Limit to avoid clutter
+                add_format_row(table, f)
+        
+        # Add video-only formats
+        if video_formats:
+            table.add_row("[bold]--- Video Only ---[/bold]", "", "", "", "", "", style="bold blue")
+            for f in video_formats[:10]:
+                add_format_row(table, f)
+        
+        # Add audio-only formats
+        if audio_formats:
+            table.add_row("[bold]--- Audio Only ---[/bold]", "", "", "", "", "", style="bold magenta")
+            for f in audio_formats[:10]:
+                add_format_row(table, f)
+        
+        console.print(table)
+        
+        return info['formats'], info['title']
+    
     except Exception as e:
-        print(f"Error: {e}")
-        return None
+        console.print(f"[bold red]✗ Error: {e}[/bold red]")
+        return None, None
 
+def add_format_row(table, f):
+    """Add a format row to the table"""
+    format_id = f.get('format_id', 'N/A')
+    ext = f.get('ext', 'N/A')
+    resolution = f.get('resolution', 'audio only' if f.get('vcodec') == 'none' else 'N/A')
+    fps = str(f.get('fps', '-'))
+    filesize = f.get('filesize') or f.get('filesize_approx')
+    size = f"{filesize / (1024*1024):.1f} MB" if filesize else "Unknown"
+    note = f.get('format_note', '')
+    
+    table.add_row(format_id, ext, resolution, fps, size, note)
 
 def download_video(url, format_id=None):
     """Download video with specified format"""
