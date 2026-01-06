@@ -1,16 +1,16 @@
 from setuptools import setup
 
 setup(
-    name='ytdl',
+    name='downloader',
     version='1.0',
-    py_modules=['yt_downloader'],
+    py_modules=['downloader'],
     install_requires=[
         'yt-dlp',
         'rich',
     ],
     entry_points={
         'console_scripts': [
-            'ytdl=yt_downloader:main',
+            'dwn=downloader:main',
         ],
     },
 )
