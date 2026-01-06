@@ -1,5 +1,13 @@
+import os
 import sys
 import yt_dlp
+from pathlib import Path
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt, Confirm
+from rich.table import Table
+
+console = Console()
 
 # Default download directories
 DEFAULT_DIRS = {
@@ -8,6 +16,53 @@ DEFAULT_DIRS = {
     '3': ('.', 'Current directory'),
     '4': ('custom', 'Custom path')
 }
+
+def get_output_directory():
+    """Let user choose output directory"""
+    console.print("\n[bold cyan]Choose output directory:[/bold cyan]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Option", style="cyan", width=8)
+    table.add_column("Directory", style="green")
+    table.add_column("Description", style="yellow")
+    
+    for key, (path, desc) in DEFAULT_DIRS.items():
+        display_path = path if path != 'custom' else '(Enter custom path)'
+        # Check if directory exists
+        if path not in ['.', 'custom']:
+            expanded = os.path.expanduser(path)
+            exists = os.path.exists(expanded)
+            status = "✓" if exists else "✗"
+            table.add_row(key, f"{status} {display_path}", desc)
+        else:
+            table.add_row(key, display_path, desc)
+    
+    console.print(table)
+    
+    choice = Prompt.ask("\n[bold]Select option[/bold]", choices=list(DEFAULT_DIRS.keys()), default="1")
+    
+    selected_path, _ = DEFAULT_DIRS[choice]
+    
+    if selected_path == 'custom':
+        custom_path = Prompt.ask("[bold]Enter custom directory path[/bold]")
+        selected_path = custom_path
+    
+    # Expand and create directory if needed
+    output_dir = os.path.expanduser(selected_path)
+    
+    if not os.path.exists(output_dir):
+        if Confirm.ask(f"[yellow]Directory doesn't exist. Create it?[/yellow]"):
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+                console.print(f"[green]✓ Created directory: {output_dir}[/green]")
+            except Exception as e:
+                console.print(f"[red]✗ Error creating directory: {e}[/red]")
+                return None
+        else:
+            console.print("[red]Download cancelled.[/red]")
+            return None
+    
+    return output_dir
 
 def list_formats(url):
     """List all available formats for a given YouTube URL."""
