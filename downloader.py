@@ -148,22 +148,24 @@ def add_format_row(table, f):
     
     table.add_row(format_id, ext, resolution, fps, size, note)
 
-def download_video(url, format_id=None):
+def download_video(url, format_id, output_dir, title):
     """Download video with specified format"""
+    output_template = os.path.join(output_dir, '%(title)s.%(ext)s')
+    
     ydl_opts = {
         'format': format_id if format_id else 'best',
-        'outtmpl': '%(title)s.%(ext)s',
-        'progress_hooks': [progress_hook],
+        'outtmpl': output_template,
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f"\nDownloading...")
+            console.print(f"\n[bold green]Starting download...[/bold green]")
+            console.print(f"[cyan]Output:[/cyan] {output_dir}")
             ydl.download([url])
-            print("\nDownload complete!")
+            console.print(f"\n[bold green]✓ Download complete![/bold green]")
     
     except Exception as e:
-        print(f"Error downloading: {e}")
+        console.print(f"[bold red]✗ Error downloading: {e}[/bold red]")
 
 def progress_hook(d):
     """Display download progress"""
