@@ -7,6 +7,7 @@ setup(
     install_requires=[
         'yt-dlp',
         'rich',
+        'questionary',
     ],
     entry_points={
         'console_scripts': [

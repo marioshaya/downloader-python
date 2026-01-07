@@ -3,4 +3,5 @@ Name: downloader
 Version: 1.0
 Requires-Dist: yt-dlp
 Requires-Dist: rich
+Requires-Dist: questionary
 Dynamic: requires-dist
