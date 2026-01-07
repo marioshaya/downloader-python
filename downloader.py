@@ -1,13 +1,28 @@
 import os
 import sys
 import yt_dlp
+import questionary
+
 from pathlib import Path
+from questionary import Style
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 
 console = Console()
+
+# Custom style for questionary
+custom_style = Style([
+    ('qmark', 'fg:#673ab7 bold'),
+    ('question', 'bold'),
+    ('answer', 'fg:#00ff00 bold'),
+    ('pointer', 'fg:#673ab7 bold'),
+    ('highlighted', 'fg:#673ab7 bold'),
+    ('selected', 'fg:#00ff00'),
+    ('separator', 'fg:#cc5454'),
+    ('instruction', 'fg:#858585'),
+])
 
 # Default download directories
 DEFAULT_DIRS = {
