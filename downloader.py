@@ -34,39 +34,58 @@ DEFAULT_DIRS = [
 
 def get_output_directory():
     """Let user choose output directory"""
-    console.print("\n[bold cyan]Choose output directory:[/bold cyan]")
+    console.print("\n[bold cyan]Choose output directory:[/bold cyan]\n")
     
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Option", style="cyan", width=8)
-    table.add_column("Directory", style="green")
-    table.add_column("Description", style="yellow")
-    
-    for key, (path, desc) in DEFAULT_DIRS.items():
-        display_path = path if path != 'custom' else '(Enter custom path)'
-        # Check if directory exists
+    # Create choices with status indicators
+    choices = []
+    for dir_info in DEFAULT_DIRS:
+        path = dir_info['path']
+        name = dir_info['name']
+        
         if path not in ['.', 'custom']:
             expanded = os.path.expanduser(path)
             exists = os.path.exists(expanded)
             status = "✓" if exists else "✗"
-            table.add_row(key, f"{status} {display_path}", desc)
+            display = f"{status} {name} [{path}]"
         else:
-            table.add_row(key, display_path, desc)
+            display = name
+        
+        choices.append(questionary.Choice(title=display, value=path))
     
-    console.print(table)
+    selected_path = questionary.select(
+        "Use arrow keys to navigate, Enter to select:",
+        choices=choices,
+        style=custom_style,
+        use_indicator=True,
+        use_shortcuts=True
+    ).ask()
     
-    choice = Prompt.ask("\n[bold]Select option[/bold]", choices=list(DEFAULT_DIRS.keys()), default="1")
-    
-    selected_path, _ = DEFAULT_DIRS[choice]
+    if selected_path is None:  # User pressed Ctrl+C
+        return None
     
     if selected_path == 'custom':
-        custom_path = Prompt.ask("[bold]Enter custom directory path[/bold]")
+        custom_path = questionary.text(
+            "Enter custom directory path:",
+            style=custom_style
+        ).ask()
+        
+        if not custom_path:
+            console.print("[red]No path provided![/red]")
+            return None
+        
         selected_path = custom_path
     
     # Expand and create directory if needed
     output_dir = os.path.expanduser(selected_path)
     
     if not os.path.exists(output_dir):
-        if Confirm.ask(f"[yellow]Directory doesn't exist. Create it?[/yellow]"):
+        create = questionary.confirm(
+            f"Directory doesn't exist. Create it?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if create:
             try:
                 os.makedirs(output_dir, exist_ok=True)
                 console.print(f"[green]✓ Created directory: {output_dir}[/green]")
