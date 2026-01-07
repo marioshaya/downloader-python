@@ -119,51 +119,6 @@ def list_formats(url):
             border_style="magenta"
         ))
         
-        # Create formats table
-        table = Table(show_header=True, header_style="bold cyan", title="\n[bold]Available Formats[/bold]")
-        table.add_column("ID", style="yellow", width=8)
-        table.add_column("Ext", style="green", width=8)
-        table.add_column("Resolution", style="cyan", width=15)
-        table.add_column("FPS", style="blue", width=6)
-        table.add_column("Size", style="magenta", width=12)
-        table.add_column("Type", style="white", width=20)
-        
-        # Separate video and audio formats
-        video_formats = []
-        audio_formats = []
-        combined_formats = []
-        
-        for f in info['formats']:
-            has_video = f.get('vcodec') != 'none'
-            has_audio = f.get('acodec') != 'none'
-            
-            if has_video and has_audio:
-                combined_formats.append(f)
-            elif has_video:
-                video_formats.append(f)
-            elif has_audio:
-                audio_formats.append(f)
-        
-        # Add combined formats
-        if combined_formats:
-            table.add_row("[bold]--- Combined (Video + Audio) ---[/bold]", "", "", "", "", "", style="bold green")
-            for f in combined_formats[:10]:  # Limit to avoid clutter
-                add_format_row(table, f)
-        
-        # Add video-only formats
-        if video_formats:
-            table.add_row("[bold]--- Video Only ---[/bold]", "", "", "", "", "", style="bold blue")
-            for f in video_formats[:10]:
-                add_format_row(table, f)
-        
-        # Add audio-only formats
-        if audio_formats:
-            table.add_row("[bold]--- Audio Only ---[/bold]", "", "", "", "", "", style="bold magenta")
-            for f in audio_formats[:10]:
-                add_format_row(table, f)
-        
-        console.print(table)
-        
         return info['formats'], info['title']
     
     except Exception as e:
