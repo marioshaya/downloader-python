@@ -1,14 +1,12 @@
-import os
-import sys
 import yt_dlp
-import questionary
-
+import sys
+import os
 from pathlib import Path
-from questionary import Style
 from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
 from rich.table import Table
+from rich.panel import Panel
+import questionary
+from questionary import Style
 
 console = Console()
 
@@ -212,31 +210,20 @@ def format_to_choice(f):
         parts.append(f"- {note}")
     
     return " ".join(parts)
-    
-def add_format_row(table, f):
-    """Add a format row to the table"""
-    format_id = f.get('format_id', 'N/A')
-    ext = f.get('ext', 'N/A')
-    resolution = f.get('resolution', 'audio only' if f.get('vcodec') == 'none' else 'N/A')
-    fps = str(f.get('fps', '-'))
-    filesize = f.get('filesize') or f.get('filesize_approx')
-    size = f"{filesize / (1024*1024):.1f} MB" if filesize else "Unknown"
-    note = f.get('format_note', '')
-    
-    table.add_row(format_id, ext, resolution, fps, size, note)
 
 def download_video(url, format_id, output_dir, title):
     """Download video with specified format"""
     output_template = os.path.join(output_dir, '%(title)s.%(ext)s')
     
     ydl_opts = {
-        'format': format_id if format_id else 'best',
+        'format': format_id,
         'outtmpl': output_template,
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             console.print(f"\n[bold green]Starting download...[/bold green]")
+            console.print(f"[cyan]Format:[/cyan] {format_id}")
             console.print(f"[cyan]Output:[/cyan] {output_dir}")
             ydl.download([url])
             console.print(f"\n[bold green]✓ Download complete![/bold green]")
@@ -249,19 +236,9 @@ def show_menu():
     console.clear()
     console.print(Panel.fit(
         "[bold cyan]YouTube Video Downloader[/bold cyan]\n"
-        "[dim]Qamardo SHAYA[/dim]",
+        "[dim]Download videos in your preferred format and location[/dim]",
         border_style="cyan"
     ))
-
-def progress_hook(d):
-    """Display download progress"""
-    if d['status'] == 'downloading':
-        percent = d.get('_percent_str', 'N/A')
-        speed = d.get('_speed_str', 'N/A')
-        eta = d.get('_eta_str', 'N/A')
-        print(f"\rProgress: {percent} | Speed: {speed} | ETA: {eta}", end='')
-    elif d['status'] == 'finished':
-        print("\nProcessing...")
 
 def main():
     show_menu()
@@ -269,9 +246,12 @@ def main():
     # Get URL
     if len(sys.argv) > 1:
         url = sys.argv[1]
-        console.print(f"[green]Using URL from arguments[/green]")
+        console.print(f"[green]Using URL from arguments[/green]\n")
     else:
-        url = Prompt.ask("\n[bold cyan]Enter YouTube URL[/bold cyan]").strip()
+        url = questionary.text(
+            "Enter YouTube URL:",
+            style=custom_style
+        ).ask()
     
     if not url:
         console.print("[red]No URL provided![/red]")
@@ -282,30 +262,20 @@ def main():
     if not formats:
         return
     
-     # Format selection menu
-    console.print("\n" + "─" * 80)
-    console.print("[bold yellow]Download Options:[/bold yellow]")
-    console.print("  • Enter [bold]format ID[/bold] for specific format")
-    console.print("  • Press [bold]Enter[/bold] for best quality")
-    console.print("  • Type [bold]'bestvideo+bestaudio'[/bold] for best video+audio merge")
-    console.print("  • Type [bold]'bestaudio'[/bold] for audio only")
-    console.print("  • Type [bold]'q'[/bold] to quit")
-    console.print("─" * 80)
-    
-    choice = Prompt.ask("\n[bold]Your choice[/bold]", default="").strip()
-    
-    if choice.lower() == 'q':
+    # Select format with arrow keys
+    selected_format = select_format(formats)
+    if not selected_format:
         console.print("[yellow]Cancelled.[/yellow]")
         return
     
-    # Get output directory
+    # Get output directory with arrow keys
     output_dir = get_output_directory()
     if not output_dir:
+        console.print("[yellow]Cancelled.[/yellow]")
         return
     
     # Download
-    format_id = choice if choice else 'best'
-    download_video(url, format_id, output_dir, title)
+    download_video(url, selected_format, output_dir, title)
 
 if __name__ == "__main__":
     try:
@@ -314,5 +284,3 @@ if __name__ == "__main__":
         console.print("\n[yellow]Interrupted by user.[/yellow]")
     except Exception as e:
         console.print(f"\n[bold red]Unexpected error: {e}[/bold red]")
-
-    

@@ -1,57 +1,89 @@
-import os
-import sys
 import yt_dlp
+import sys
+import os
 from pathlib import Path
 from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
 from rich.table import Table
+from rich.panel import Panel
+import questionary
+from questionary import Style
 
 console = Console()
 
+# Custom style for questionary
+custom_style = Style([
+    ('qmark', 'fg:#673ab7 bold'),
+    ('question', 'bold'),
+    ('answer', 'fg:#00ff00 bold'),
+    ('pointer', 'fg:#673ab7 bold'),
+    ('highlighted', 'fg:#673ab7 bold'),
+    ('selected', 'fg:#00ff00'),
+    ('separator', 'fg:#cc5454'),
+    ('instruction', 'fg:#858585'),
+])
+
 # Default download directories
-DEFAULT_DIRS = {
-    '1': ('~/Music', 'Music folder'),
-    '2': ('/mnt/Data/Tantara/', 'Tantara folder'),
-    '3': ('.', 'Current directory'),
-    '4': ('custom', 'Custom path')
-}
+DEFAULT_DIRS = [
+    {'name': '🎵 Music', 'path': '~/Music'},
+    {'name': '💾 Tantara', 'path': '/mnt/Data/Tantara/'},
+    {'name': '📁 Current directory', 'path': '.'},
+    {'name': '✏️  Custom path...', 'path': 'custom'},
+]
 
 def get_output_directory():
     """Let user choose output directory"""
-    console.print("\n[bold cyan]Choose output directory:[/bold cyan]")
+    console.print("\n[bold cyan]Choose output directory:[/bold cyan]\n")
     
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Option", style="cyan", width=8)
-    table.add_column("Directory", style="green")
-    table.add_column("Description", style="yellow")
-    
-    for key, (path, desc) in DEFAULT_DIRS.items():
-        display_path = path if path != 'custom' else '(Enter custom path)'
-        # Check if directory exists
+    # Create choices with status indicators
+    choices = []
+    for dir_info in DEFAULT_DIRS:
+        path = dir_info['path']
+        name = dir_info['name']
+        
         if path not in ['.', 'custom']:
             expanded = os.path.expanduser(path)
             exists = os.path.exists(expanded)
             status = "✓" if exists else "✗"
-            table.add_row(key, f"{status} {display_path}", desc)
+            display = f"{status} {name} [{path}]"
         else:
-            table.add_row(key, display_path, desc)
+            display = name
+        
+        choices.append(questionary.Choice(title=display, value=path))
     
-    console.print(table)
+    selected_path = questionary.select(
+        "Use arrow keys to navigate, Enter to select:",
+        choices=choices,
+        style=custom_style,
+        use_indicator=True,
+        use_shortcuts=True
+    ).ask()
     
-    choice = Prompt.ask("\n[bold]Select option[/bold]", choices=list(DEFAULT_DIRS.keys()), default="1")
-    
-    selected_path, _ = DEFAULT_DIRS[choice]
+    if selected_path is None:  # User pressed Ctrl+C
+        return None
     
     if selected_path == 'custom':
-        custom_path = Prompt.ask("[bold]Enter custom directory path[/bold]")
+        custom_path = questionary.text(
+            "Enter custom directory path:",
+            style=custom_style
+        ).ask()
+        
+        if not custom_path:
+            console.print("[red]No path provided![/red]")
+            return None
+        
         selected_path = custom_path
     
     # Expand and create directory if needed
     output_dir = os.path.expanduser(selected_path)
     
     if not os.path.exists(output_dir):
-        if Confirm.ask(f"[yellow]Directory doesn't exist. Create it?[/yellow]"):
+        create = questionary.confirm(
+            f"Directory doesn't exist. Create it?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if create:
             try:
                 os.makedirs(output_dir, exist_ok=True)
                 console.print(f"[green]✓ Created directory: {output_dir}[/green]")
@@ -85,81 +117,113 @@ def list_formats(url):
             border_style="magenta"
         ))
         
-        # Create formats table
-        table = Table(show_header=True, header_style="bold cyan", title="\n[bold]Available Formats[/bold]")
-        table.add_column("ID", style="yellow", width=8)
-        table.add_column("Ext", style="green", width=8)
-        table.add_column("Resolution", style="cyan", width=15)
-        table.add_column("FPS", style="blue", width=6)
-        table.add_column("Size", style="magenta", width=12)
-        table.add_column("Type", style="white", width=20)
-        
-        # Separate video and audio formats
-        video_formats = []
-        audio_formats = []
-        combined_formats = []
-        
-        for f in info['formats']:
-            has_video = f.get('vcodec') != 'none'
-            has_audio = f.get('acodec') != 'none'
-            
-            if has_video and has_audio:
-                combined_formats.append(f)
-            elif has_video:
-                video_formats.append(f)
-            elif has_audio:
-                audio_formats.append(f)
-        
-        # Add combined formats
-        if combined_formats:
-            table.add_row("[bold]--- Combined (Video + Audio) ---[/bold]", "", "", "", "", "", style="bold green")
-            for f in combined_formats[:10]:  # Limit to avoid clutter
-                add_format_row(table, f)
-        
-        # Add video-only formats
-        if video_formats:
-            table.add_row("[bold]--- Video Only ---[/bold]", "", "", "", "", "", style="bold blue")
-            for f in video_formats[:10]:
-                add_format_row(table, f)
-        
-        # Add audio-only formats
-        if audio_formats:
-            table.add_row("[bold]--- Audio Only ---[/bold]", "", "", "", "", "", style="bold magenta")
-            for f in audio_formats[:10]:
-                add_format_row(table, f)
-        
-        console.print(table)
-        
         return info['formats'], info['title']
     
     except Exception as e:
         console.print(f"[bold red]✗ Error: {e}[/bold red]")
         return None, None
 
-def add_format_row(table, f):
-    """Add a format row to the table"""
+def select_format(formats):
+    """Let user select format with arrow keys"""
+    console.print("\n[bold cyan]Select download format:[/bold cyan]\n")
+    
+    # Separate formats
+    combined_formats = []
+    video_formats = []
+    audio_formats = []
+    
+    for f in formats:
+        has_video = f.get('vcodec') != 'none'
+        has_audio = f.get('acodec') != 'none'
+        
+        if has_video and has_audio:
+            combined_formats.append(f)
+        elif has_video:
+            video_formats.append(f)
+        elif has_audio:
+            audio_formats.append(f)
+    
+    # Build choices
+    choices = []
+    
+    # Add quick options
+    choices.append(questionary.Choice(
+        title="⭐ Best quality (automatic)",
+        value="best"
+    ))
+    choices.append(questionary.Choice(
+        title="🎬 Best video + audio (merged)",
+        value="bestvideo+bestaudio"
+    ))
+    choices.append(questionary.Choice(
+        title="🎵 Best audio only",
+        value="bestaudio"
+    ))
+    choices.append(questionary.Separator("─── Combined Formats ───"))
+    
+    # Add combined formats
+    for f in combined_formats[:8]:
+        title = format_to_choice(f)
+        choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    # Add video-only formats
+    if video_formats:
+        choices.append(questionary.Separator("─── Video Only ───"))
+        for f in video_formats[:8]:
+            title = format_to_choice(f)
+            choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    # Add audio-only formats
+    if audio_formats:
+        choices.append(questionary.Separator("─── Audio Only ───"))
+        for f in audio_formats[:8]:
+            title = format_to_choice(f)
+            choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    selected_format = questionary.select(
+        "Use arrow keys to navigate, Enter to select:",
+        choices=choices,
+        style=custom_style,
+        use_indicator=True,
+        instruction=" (↑↓ to move, Enter to select)"
+    ).ask()
+    
+    return selected_format
+
+def format_to_choice(f):
+    """Convert format dict to readable choice string"""
     format_id = f.get('format_id', 'N/A')
     ext = f.get('ext', 'N/A')
     resolution = f.get('resolution', 'audio only' if f.get('vcodec') == 'none' else 'N/A')
-    fps = str(f.get('fps', '-'))
+    fps = f.get('fps', '')
+    fps_str = f"{fps}fps" if fps else ""
     filesize = f.get('filesize') or f.get('filesize_approx')
-    size = f"{filesize / (1024*1024):.1f} MB" if filesize else "Unknown"
+    size = f"{filesize / (1024*1024):.1f}MB" if filesize else "?"
     note = f.get('format_note', '')
     
-    table.add_row(format_id, ext, resolution, fps, size, note)
+    # Build display string
+    parts = [f"[{format_id}]", ext, resolution]
+    if fps_str:
+        parts.append(fps_str)
+    parts.append(f"({size})")
+    if note:
+        parts.append(f"- {note}")
+    
+    return " ".join(parts)
 
 def download_video(url, format_id, output_dir, title):
     """Download video with specified format"""
     output_template = os.path.join(output_dir, '%(title)s.%(ext)s')
     
     ydl_opts = {
-        'format': format_id if format_id else 'best',
+        'format': format_id,
         'outtmpl': output_template,
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             console.print(f"\n[bold green]Starting download...[/bold green]")
+            console.print(f"[cyan]Format:[/cyan] {format_id}")
             console.print(f"[cyan]Output:[/cyan] {output_dir}")
             ydl.download([url])
             console.print(f"\n[bold green]✓ Download complete![/bold green]")
@@ -172,19 +236,9 @@ def show_menu():
     console.clear()
     console.print(Panel.fit(
         "[bold cyan]YouTube Video Downloader[/bold cyan]\n"
-        "[dim]Qamardo SHAYA[/dim]",
+        "[dim]Download videos in your preferred format and location[/dim]",
         border_style="cyan"
     ))
-
-def progress_hook(d):
-    """Display download progress"""
-    if d['status'] == 'downloading':
-        percent = d.get('_percent_str', 'N/A')
-        speed = d.get('_speed_str', 'N/A')
-        eta = d.get('_eta_str', 'N/A')
-        print(f"\rProgress: {percent} | Speed: {speed} | ETA: {eta}", end='')
-    elif d['status'] == 'finished':
-        print("\nProcessing...")
 
 def main():
     show_menu()
@@ -192,9 +246,12 @@ def main():
     # Get URL
     if len(sys.argv) > 1:
         url = sys.argv[1]
-        console.print(f"[green]Using URL from arguments[/green]")
+        console.print(f"[green]Using URL from arguments[/green]\n")
     else:
-        url = Prompt.ask("\n[bold cyan]Enter YouTube URL[/bold cyan]").strip()
+        url = questionary.text(
+            "Enter YouTube URL:",
+            style=custom_style
+        ).ask()
     
     if not url:
         console.print("[red]No URL provided![/red]")
@@ -205,30 +262,20 @@ def main():
     if not formats:
         return
     
-     # Format selection menu
-    console.print("\n" + "─" * 80)
-    console.print("[bold yellow]Download Options:[/bold yellow]")
-    console.print("  • Enter [bold]format ID[/bold] for specific format")
-    console.print("  • Press [bold]Enter[/bold] for best quality")
-    console.print("  • Type [bold]'bestvideo+bestaudio'[/bold] for best video+audio merge")
-    console.print("  • Type [bold]'bestaudio'[/bold] for audio only")
-    console.print("  • Type [bold]'q'[/bold] to quit")
-    console.print("─" * 80)
-    
-    choice = Prompt.ask("\n[bold]Your choice[/bold]", default="").strip()
-    
-    if choice.lower() == 'q':
+    # Select format with arrow keys
+    selected_format = select_format(formats)
+    if not selected_format:
         console.print("[yellow]Cancelled.[/yellow]")
         return
     
-    # Get output directory
+    # Get output directory with arrow keys
     output_dir = get_output_directory()
     if not output_dir:
+        console.print("[yellow]Cancelled.[/yellow]")
         return
     
     # Download
-    format_id = choice if choice else 'best'
-    download_video(url, format_id, output_dir, title)
+    download_video(url, selected_format, output_dir, title)
 
 if __name__ == "__main__":
     try:
@@ -237,5 +284,3 @@ if __name__ == "__main__":
         console.print("\n[yellow]Interrupted by user.[/yellow]")
     except Exception as e:
         console.print(f"\n[bold red]Unexpected error: {e}[/bold red]")
-
-    
