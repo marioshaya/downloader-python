@@ -125,6 +125,94 @@ def list_formats(url):
         console.print(f"[bold red]✗ Error: {e}[/bold red]")
         return None, None
 
+def select_format(formats):
+    """Let user select format with arrow keys"""
+    console.print("\n[bold cyan]Select download format:[/bold cyan]\n")
+    
+    # Separate formats
+    combined_formats = []
+    video_formats = []
+    audio_formats = []
+    
+    for f in formats:
+        has_video = f.get('vcodec') != 'none'
+        has_audio = f.get('acodec') != 'none'
+        
+        if has_video and has_audio:
+            combined_formats.append(f)
+        elif has_video:
+            video_formats.append(f)
+        elif has_audio:
+            audio_formats.append(f)
+    
+    # Build choices
+    choices = []
+    
+    # Add quick options
+    choices.append(questionary.Choice(
+        title="⭐ Best quality (automatic)",
+        value="best"
+    ))
+    choices.append(questionary.Choice(
+        title="🎬 Best video + audio (merged)",
+        value="bestvideo+bestaudio"
+    ))
+    choices.append(questionary.Choice(
+        title="🎵 Best audio only",
+        value="bestaudio"
+    ))
+    choices.append(questionary.Separator("─── Combined Formats ───"))
+    
+    # Add combined formats
+    for f in combined_formats[:8]:
+        title = format_to_choice(f)
+        choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    # Add video-only formats
+    if video_formats:
+        choices.append(questionary.Separator("─── Video Only ───"))
+        for f in video_formats[:8]:
+            title = format_to_choice(f)
+            choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    # Add audio-only formats
+    if audio_formats:
+        choices.append(questionary.Separator("─── Audio Only ───"))
+        for f in audio_formats[:8]:
+            title = format_to_choice(f)
+            choices.append(questionary.Choice(title=title, value=f.get('format_id')))
+    
+    selected_format = questionary.select(
+        "Use arrow keys to navigate, Enter to select:",
+        choices=choices,
+        style=custom_style,
+        use_indicator=True,
+        instruction=" (↑↓ to move, Enter to select)"
+    ).ask()
+    
+    return selected_format
+
+def format_to_choice(f):
+    """Convert format dict to readable choice string"""
+    format_id = f.get('format_id', 'N/A')
+    ext = f.get('ext', 'N/A')
+    resolution = f.get('resolution', 'audio only' if f.get('vcodec') == 'none' else 'N/A')
+    fps = f.get('fps', '')
+    fps_str = f"{fps}fps" if fps else ""
+    filesize = f.get('filesize') or f.get('filesize_approx')
+    size = f"{filesize / (1024*1024):.1f}MB" if filesize else "?"
+    note = f.get('format_note', '')
+    
+    # Build display string
+    parts = [f"[{format_id}]", ext, resolution]
+    if fps_str:
+        parts.append(fps_str)
+    parts.append(f"({size})")
+    if note:
+        parts.append(f"- {note}")
+    
+    return " ".join(parts)
+    
 def add_format_row(table, f):
     """Add a format row to the table"""
     format_id = f.get('format_id', 'N/A')
