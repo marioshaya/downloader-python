@@ -25,12 +25,12 @@ custom_style = Style([
 ])
 
 # Default download directories
-DEFAULT_DIRS = {
-    '1': ('~/Music', 'Music folder'),
-    '2': ('/mnt/Data/Tantara/', 'Tantara folder'),
-    '3': ('.', 'Current directory'),
-    '4': ('custom', 'Custom path')
-}
+DEFAULT_DIRS = [
+    {'name': '🎵 Music', 'path': '~/Music'},
+    {'name': '💾 Tantara', 'path': '/mnt/Data/Tantara/'},
+    {'name': '📁 Current directory', 'path': '.'},
+    {'name': '✏️  Custom path...', 'path': 'custom'},
+]
 
 def get_output_directory():
     """Let user choose output directory"""
