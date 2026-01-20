@@ -14,7 +14,7 @@ Small interactive CLI for downloading YouTube videos using `yt-dlp`. Prompts gui
 
 ### Setup
 ```bash
-cd /home/qamardo/Projects/downloader
+cd /path/to/the/project/downloader
 python -m venv .venv
 source .venv/bin/activate
 python -m ensurepip --upgrade
@@ -22,6 +22,18 @@ pip install --upgrade pip
 pip install -e .
 # or: pip install -r requirements.txt   # once populated
 ```
+
+#### Make `dwn` available globally (no venv activation)
+- **Recommended (isolated):** install via `pipx`  
+  ```bash
+  pipx install /path/to/the/project/downloader
+  ```
+- **Alternative (user site):**  
+  ```bash
+  python -m pip install --user /path/to/the/project/downloader
+  # ensure ~/.local/bin is on PATH
+  ```
+- After either approach, you can run `dwn <link>` from any shell without activating the venv.
 
 ### Usage
 With the virtualenv active:
